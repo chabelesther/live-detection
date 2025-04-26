@@ -7,6 +7,7 @@ import { FaCamera, FaVideo, FaStop, FaUpload, FaTimes } from "react-icons/fa";
 const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
 
 const WebcamCapture: React.FC = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const webcamRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
