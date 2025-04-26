@@ -8,6 +8,7 @@ export default function CameraPage() {
   const [streaming, setStreaming] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     async function setupCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -28,6 +29,7 @@ export default function CameraPage() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     if (!streaming) return;
 
     const ctx = canvasRef.current?.getContext("2d");
