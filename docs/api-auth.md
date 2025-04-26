@@ -98,59 +98,53 @@ Authorization: Bearer YOUR_JWT_TOKEN
   - `404 Not Found`: Utilisateur non trouvé
   - `500 Internal Server Error`: Erreur serveur
 
-## Gestion du token JWT
-
-Le token JWT doit être:
-
-1. Stocké localement après une connexion/inscription réussie
-2. Inclus dans toutes les requêtes nécessitant une authentification
-3. Supprimé lors de la déconnexion
-
 ## Exemple d'utilisation en JavaScript/TypeScript
 
 ```typescript
 // Inscription
 async function signup(email: string, password: string, name?: string) {
-  const response = await fetch("https://votre-api.com/api/auth/signup", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password, name }),
-  });
+  const response = await fetch(
+    "https://live-detection-five.vercel.app/api/auth/signup",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password, name }),
+    }
+  );
 
   return await response.json();
 }
 
 // Connexion
 async function login(email: string, password: string) {
-  const response = await fetch("https://votre-api.com/api/auth/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  });
+  const response = await fetch(
+    "https://live-detection-five.vercel.app/api/auth/login",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    }
+  );
 
   return await response.json();
 }
 
 // Récupérer le profil
 async function getProfile(token: string) {
-  const response = await fetch("https://votre-api.com/api/auth/me", {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await fetch(
+    "https://live-detection-five.vercel.app/api/auth/me",
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
 
   return await response.json();
 }
 ```
-
-## Notes importantes
-
-- Les tokens JWT expirent après 7 jours par défaut
-- Toutes les requêtes et réponses sont en JSON
-- Toutes les dates sont au format ISO 8601
-- Pour les environnements de développement, assurez-vous d'utiliser l'URL correcte de l'API
