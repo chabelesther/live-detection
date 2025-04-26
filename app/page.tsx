@@ -160,32 +160,32 @@ const WebcamCapture: React.FC = () => {
             />
 
             {/* Zone d'analyse visuelle (simulation basée sur l'image partagée) */}
-            <div className="absolute inset-0 pointer-events-none">
-              {/* Ligne horizontale et verticale de guidage */}
-              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500 bg-opacity-50"></div>
-              <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500 bg-opacity-50"></div>
+            {/* <div className="absolute inset-0 pointer-events-none"> */}
+            {/* Ligne horizontale et verticale de guidage */}
+            {/* <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500 bg-opacity-50"></div>
+              <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500 bg-opacity-50"></div> */}
 
-              {/* Zones de détection (simulation) - première zone */}
-              <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+            {/* Zones de détection (simulation) - première zone */}
+            {/* <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
                 <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
                   DÉTECTION 1
                 </div>
-              </div>
+              </div> */}
 
-              {/* Zones de détection - deuxième zone */}
-              <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+            {/* Zones de détection - deuxième zone */}
+            {/* <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
                 <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
                   DÉTECTION 2
                 </div>
-              </div>
+              </div> */}
 
-              {/* Zone verte à droite */}
-              <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
+            {/* Zone verte à droite */}
+            {/* <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
                 <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
                   ZONE OK
                 </div>
               </div>
-            </div>
+            </div> */}
 
             {/* Contrôles de la caméra */}
             <div className="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-8 z-10">
@@ -246,25 +246,25 @@ const WebcamCapture: React.FC = () => {
                 {/* Annotations de l'image (simulation) */}
                 <div className="absolute inset-0 pointer-events-none">
                   {/* Première zone de détection */}
-                  <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                  {/* <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
                     <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
                       DÉTECTION 1
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Deuxième zone de détection */}
-                  <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                  {/* <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
                     <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
                       DÉTECTION 2
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Zone verte à droite */}
-                  <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
+                  {/* <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
                     <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
                       ZONE OK
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
             )}

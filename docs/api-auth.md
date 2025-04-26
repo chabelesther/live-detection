@@ -12,6 +12,8 @@ Authorization: Bearer YOUR_JWT_TOKEN
 
 ## Endpoints
 
+### URL de base `https://live-detection-five.vercel.app/`
+
 ### Inscription (Sign Up)
 
 - **URL**: `/api/auth/signup`
