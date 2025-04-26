@@ -1,6 +1,7 @@
 "use client";
-import React, { useRef, useState, useCallback } from "react";
+import React, { useRef, useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { FaCamera, FaVideo, FaStop, FaUpload, FaTimes } from "react-icons/fa";
 
 // Charger react-webcam uniquement côté client (pas de SSR)
 const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
@@ -12,6 +13,31 @@ const WebcamCapture: React.FC = () => {
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCapture, setShowCapture] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({
+    width: 640,
+    height: 480,
+  });
+
+  // Mettre à jour les dimensions de la fenêtre pour la caméra
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+
+      const handleResize = () => {
+        setWindowDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      };
+
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }
+  }, []);
 
   // Fonction pour capturer une photo
   const capture = useCallback(() => {
@@ -19,6 +45,7 @@ const WebcamCapture: React.FC = () => {
       const imageSrc = webcamRef.current.getScreenshot();
       if (imageSrc) {
         setImgSrc(imageSrc);
+        setShowCapture(true);
         setError(null);
       } else {
         setError("Erreur lors de la capture de l'image.");
@@ -66,6 +93,7 @@ const WebcamCapture: React.FC = () => {
 
     mediaRecorderRef.current.onstop = () => {
       setIsRecording(false);
+      setShowCapture(true);
     };
 
     mediaRecorderRef.current.start();
@@ -101,87 +129,185 @@ const WebcamCapture: React.FC = () => {
     }
   };
 
+  const closeCapture = () => {
+    setShowCapture(false);
+    setImgSrc(null);
+    setRecordedChunks([]);
+  };
+
   return (
-    <div className="flex flex-col items-center space-y-4">
-      {/* Afficher le flux vidéo de la webcam */}
-      <Webcam
-        audio={false}
-        ref={webcamRef}
-        screenshotFormat="image/jpeg"
-        width={640}
-        height={480}
-        videoConstraints={{
-          facingMode: "environment", // Caméra arrière sur mobile
-        }}
-        onUserMediaError={(err) =>
-          setError("Erreur d'accès à la caméra : " + err)
-        }
-      />
+    <div className="relative h-screen w-full bg-black flex flex-col items-center overflow-hidden">
+      {!showCapture ? (
+        <>
+          {/* Interface principale de caméra */}
+          <div className="relative w-full h-full">
+            <Webcam
+              audio={false}
+              ref={webcamRef}
+              screenshotFormat="image/jpeg"
+              width={windowDimensions.width}
+              height={windowDimensions.height}
+              videoConstraints={{
+                facingMode: "environment", // Caméra arrière sur mobile
+                width: windowDimensions.width,
+                height: windowDimensions.height,
+              }}
+              className="h-full w-full object-cover"
+              onUserMediaError={(err) =>
+                setError("Erreur d&apos;accès à la caméra : " + err)
+              }
+            />
 
-      {/* Boutons pour la capture de photo */}
-      <button
-        onClick={capture}
-        className="px-4 py-2 bg-blue-500 text-white rounded"
-      >
-        Prendre une photo
-      </button>
+            {/* Zone d'analyse visuelle (simulation basée sur l'image partagée) */}
+            <div className="absolute inset-0 pointer-events-none">
+              {/* Ligne horizontale et verticale de guidage */}
+              <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500 bg-opacity-50"></div>
+              <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500 bg-opacity-50"></div>
 
-      {/* Boutons pour l'enregistrement vidéo */}
-      <div className="flex space-x-2">
-        <button
-          onClick={startRecording}
-          disabled={isRecording}
-          className={`px-4 py-2 rounded ${
-            isRecording ? "bg-gray-400" : "bg-red-500 text-white"
-          }`}
-        >
-          Démarrer l'enregistrement
-        </button>
-        <button
-          onClick={stopRecording}
-          disabled={!isRecording}
-          className={`px-4 py-2 rounded ${
-            !isRecording ? "bg-gray-400" : "bg-red-500 text-white"
-          }`}
-        >
-          Arrêter l'enregistrement
-        </button>
-      </div>
+              {/* Zones de détection (simulation) - première zone */}
+              <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
+                  DÉTECTION 1
+                </div>
+              </div>
 
-      {/* Afficher l'image capturée */}
-      {imgSrc && (
-        <div>
-          <img src={imgSrc} alt="Photo capturée" className="mt-4" />
-          <button
-            onClick={uploadImageToBackend}
-            className="mt-2 px-4 py-2 bg-green-500 text-white rounded"
-          >
-            Envoyer l'image au backend
-          </button>
-        </div>
-      )}
+              {/* Zones de détection - deuxième zone */}
+              <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
+                  DÉTECTION 2
+                </div>
+              </div>
 
-      {/* Afficher et envoyer la vidéo enregistrée */}
-      {recordedChunks.length > 0 && !isRecording && (
-        <div>
-          <video
-            controls
-            src={URL.createObjectURL(
-              new Blob(recordedChunks, { type: "video/webm" })
+              {/* Zone verte à droite */}
+              <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
+                <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
+                  ZONE OK
+                </div>
+              </div>
+            </div>
+
+            {/* Contrôles de la caméra */}
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-8 z-10">
+              {/* Bouton d'enregistrement vidéo */}
+              {!isRecording ? (
+                <button
+                  onClick={startRecording}
+                  className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center text-white shadow-lg"
+                >
+                  <FaVideo size={24} />
+                </button>
+              ) : (
+                <button
+                  onClick={stopRecording}
+                  className="w-14 h-14 rounded-full bg-red-600 flex items-center justify-center text-white shadow-lg animate-pulse"
+                >
+                  <FaStop size={24} />
+                </button>
+              )}
+
+              {/* Bouton de capture photo principal */}
+              <button
+                onClick={capture}
+                className="w-20 h-20 rounded-full border-4 border-white bg-white bg-opacity-20 flex items-center justify-center shadow-lg"
+              >
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center">
+                  <FaCamera size={28} className="text-gray-800" />
+                </div>
+              </button>
+            </div>
+
+            {/* Mini carte en bas à droite (comme dans l'image) */}
+            <div className="absolute bottom-5 right-5 w-16 h-16 bg-white rounded-md shadow-lg overflow-hidden">
+              <div className="w-full h-full bg-blue-100 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" className="w-10 h-10 text-blue-500">
+                  <path
+                    fill="currentColor"
+                    d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+                  />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Affichage de la capture */}
+          <div className="relative w-full h-full bg-black">
+            {/* Image capturée */}
+            {imgSrc && (
+              <div className="w-full h-full">
+                <img
+                  src={imgSrc}
+                  alt="Capture"
+                  className="w-full h-full object-contain"
+                />
+
+                {/* Annotations de l'image (simulation) */}
+                <div className="absolute inset-0 pointer-events-none">
+                  {/* Première zone de détection */}
+                  <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                    <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
+                      DÉTECTION 1
+                    </div>
+                  </div>
+
+                  {/* Deuxième zone de détection */}
+                  <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
+                    <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
+                      DÉTECTION 2
+                    </div>
+                  </div>
+
+                  {/* Zone verte à droite */}
+                  <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
+                    <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
+                      ZONE OK
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
-            className="mt-4"
-          />
-          <button
-            onClick={uploadVideoToBackend}
-            className="mt-2 px-4 py-2 bg-green-500 text-white rounded"
-          >
-            Envoyer la vidéo au backend
-          </button>
-        </div>
+
+            {/* Vidéo enregistrée */}
+            {recordedChunks.length > 0 && (
+              <div className="w-full h-full">
+                <video
+                  controls
+                  className="w-full h-full object-contain"
+                  src={URL.createObjectURL(
+                    new Blob(recordedChunks, { type: "video/webm" })
+                  )}
+                  autoPlay
+                />
+              </div>
+            )}
+
+            {/* Boutons d'action */}
+            <div className="absolute bottom-10 left-0 right-0 flex justify-center gap-8 z-10">
+              <button
+                onClick={closeCapture}
+                className="w-14 h-14 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg"
+              >
+                <FaTimes size={24} />
+              </button>
+
+              <button
+                onClick={imgSrc ? uploadImageToBackend : uploadVideoToBackend}
+                className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg"
+              >
+                <FaUpload size={24} />
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Afficher les erreurs */}
-      {error && <p className="text-red-500">{error}</p>}
+      {error && (
+        <div className="absolute top-4 left-0 right-0 mx-auto max-w-xs bg-red-500 text-white px-4 py-2 rounded-lg text-center shadow-lg z-50">
+          {error}
+        </div>
+      )}
     </div>
   );
 };
