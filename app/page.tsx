@@ -128,10 +128,13 @@ const WebcamCapture: React.FC = () => {
         const formData = new FormData();
         formData.append("file", blob, "captured-image.jpg");
 
-        const res = await fetch("http://127.0.0.1:8000/predict", {
-          method: "POST",
-          body: formData,
-        });
+        const res = await fetch(
+          "https://chester24-yolo-detection-api.hf.space/predict",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
         if (!res.ok) {
           const errorData = await res.json();
