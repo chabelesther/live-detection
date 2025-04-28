@@ -7,7 +7,6 @@ import { FaCamera, FaVideo, FaStop, FaUpload, FaTimes } from "react-icons/fa";
 const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
 
 const WebcamCapture: React.FC = () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const webcamRef = useRef<any>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
@@ -15,30 +14,62 @@ const WebcamCapture: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCapture, setShowCapture] = useState(false);
-  const [windowDimensions, setWindowDimensions] = useState({
+  const [frames, setFrames] = useState<string[]>([]); // Pour stocker les frames annotées
+  const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
+  const [ws, setWs] = useState<WebSocket | null>(null);
+  const animationRef = useRef<number | null>(null);
+
+  // Dimensions fixes pour la webcam (pour éviter le zoom)
+  const [dimensions, setDimensions] = useState({
     width: 640,
     height: 480,
   });
 
-  // Mettre à jour les dimensions de la fenêtre pour la caméra
+  // Ajuster les dimensions en fonction de l'appareil
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      setWindowDimensions({
-        width: window.innerWidth,
-        height: window.innerHeight,
+    const updateDimensions = () => {
+      const maxWidth = window.innerWidth > 640 ? 640 : window.innerWidth;
+      const aspectRatio = 4 / 3; // Ratio standard pour webcam
+      const height = maxWidth / aspectRatio;
+      setDimensions({
+        width: maxWidth,
+        height: height,
       });
+    };
 
-      const handleResize = () => {
-        setWindowDimensions({
-          width: window.innerWidth,
-          height: window.innerHeight,
-        });
-      };
-
-      window.addEventListener("resize", handleResize);
-      return () => window.removeEventListener("resize", handleResize);
-    }
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
   }, []);
+
+  // Animer les frames pour les vidéos
+  useEffect(() => {
+    if (frames.length === 0) return;
+
+    const animate = () => {
+      setCurrentFrameIndex((prev) => {
+        const next = (prev + 1) % frames.length;
+        animationRef.current = requestAnimationFrame(animate);
+        return next;
+      });
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [frames]);
+
+  // Nettoyage du WebSocket
+  useEffect(() => {
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [ws]);
 
   // Fonction pour capturer une photo
   const capture = useCallback(() => {
@@ -48,42 +79,20 @@ const WebcamCapture: React.FC = () => {
         setImgSrc(imageSrc);
         setShowCapture(true);
         setError(null);
+        setFrames([]); // Réinitialiser les frames
       } else {
         setError("Erreur lors de la capture de l'image.");
       }
     }
   }, []);
 
-  // Fonction pour envoyer l'image au backend
-  const uploadImageToBackend = async () => {
-    if (!imgSrc) return;
-
-    try {
-      const response = await fetch(imgSrc);
-      const blob = await response.blob();
-      const formData = new FormData();
-      formData.append("image", blob, "captured-image.jpg");
-
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      console.log("Réponse du backend (image) :", data);
-    } catch (err) {
-      console.error("Erreur lors de l'envoi de l'image :", err);
-      setError("Erreur lors de l'envoi de l'image.");
-    }
-  };
-
   // Fonction pour démarrer l'enregistrement vidéo
   const startRecording = useCallback(() => {
     if (!webcamRef.current || !webcamRef.current.stream) return;
 
-    setRecordedChunks([]); // Réinitialiser les chunks
+    setRecordedChunks([]);
     const stream = webcamRef.current.stream;
-    const options = { mimeType: "video/webm;codecs=vp9" }; // Format vidéo compatible
+    const options = { mimeType: "video/webm;codecs=vp9" };
     mediaRecorderRef.current = new MediaRecorder(stream, options);
 
     mediaRecorderRef.current.ondataavailable = (event) => {
@@ -95,6 +104,7 @@ const WebcamCapture: React.FC = () => {
     mediaRecorderRef.current.onstop = () => {
       setIsRecording(false);
       setShowCapture(true);
+      setFrames([]); // Réinitialiser les frames
     };
 
     mediaRecorderRef.current.start();
@@ -108,25 +118,115 @@ const WebcamCapture: React.FC = () => {
     }
   }, []);
 
-  // Fonction pour envoyer la vidéo au backend
-  const uploadVideoToBackend = async () => {
-    if (recordedChunks.length === 0) return;
+  // Fonction pour envoyer l'image ou la vidéo au backend
+  const uploadToBackend = async () => {
+    if (imgSrc) {
+      // Cas d'une image
+      try {
+        const response = await fetch(imgSrc);
+        const blob = await response.blob();
+        const formData = new FormData();
+        formData.append("file", blob, "captured-image.jpg");
 
-    try {
-      const blob = new Blob(recordedChunks, { type: "video/webm" });
-      const formData = new FormData();
-      formData.append("video", blob, "recorded-video.webm");
+        const res = await fetch("http://127.0.0.1:8000/predict", {
+          method: "POST",
+          body: formData,
+        });
 
-      const res = await fetch("/api/upload-video", {
-        method: "POST",
-        body: formData,
-      });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || `Erreur HTTP: ${res.statusText}`);
+        }
 
-      const data = await res.json();
-      console.log("Réponse du backend (vidéo) :", data);
-    } catch (err) {
-      console.error("Erreur lors de l'envoi de la vidéo :", err);
-      setError("Erreur lors de l'envoi de la vidéo.");
+        const contentTypeResponse = res.headers.get("Content-Type") || "";
+        if (contentTypeResponse.startsWith("image/")) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          setFrames([url]); // Afficher l'image annotée
+          setError(null);
+        } else {
+          throw new Error(`Type de réponse inattendu: ${contentTypeResponse}`);
+        }
+      } catch (err: any) {
+        setError("Erreur lors de l'envoi de l'image: " + err.message);
+        console.error("Erreur:", err);
+      }
+    } else if (recordedChunks.length > 0) {
+      // Cas d'une vidéo
+      try {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "recorded-video.webm");
+
+        const res = await fetch("http://127.0.0.1:8000/predict", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || `Erreur HTTP: ${res.statusText}`);
+        }
+
+        const contentTypeResponse = res.headers.get("Content-Type") || "";
+        if (contentTypeResponse.startsWith("application/json")) {
+          const data = await res.json();
+          console.log("Réponse JSON:", data);
+
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            if (!event.target?.result) {
+              throw new Error("Impossible de lire le fichier vidéo");
+            }
+
+            const videoData = event.target.result as ArrayBuffer;
+
+            const websocket = new WebSocket(
+              "ws://127.0.0.1:8000/ws/process-video"
+            );
+            setWs(websocket);
+
+            websocket.onopen = () => {
+              websocket.send(videoData);
+            };
+
+            websocket.onmessage = (event) => {
+              const data = JSON.parse(event.data);
+              if (data.error) {
+                setError(data.error);
+                websocket.close();
+              } else if (data.message === "Traitement terminé") {
+                websocket.close();
+              } else {
+                setFrames((prev) => [
+                  ...prev,
+                  `data:image/png;base64,${data.frame}`,
+                ]);
+              }
+            };
+
+            websocket.onerror = (e) => {
+              setError("Erreur WebSocket");
+              console.error("WebSocket error:", e);
+            };
+
+            websocket.onclose = () => {
+              console.log("WebSocket fermé");
+            };
+          };
+
+          reader.onerror = () => {
+            setError("Erreur lors de la lecture du fichier vidéo");
+          };
+
+          reader.readAsArrayBuffer(blob);
+        } else {
+          throw new Error(`Type de réponse inattendu: ${contentTypeResponse}`);
+        }
+      } catch (err: any) {
+        setError("Erreur lors de l'envoi de la vidéo: " + err.message);
+        console.error("Erreur:", err);
+      }
     }
   };
 
@@ -134,6 +234,8 @@ const WebcamCapture: React.FC = () => {
     setShowCapture(false);
     setImgSrc(null);
     setRecordedChunks([]);
+    setFrames([]);
+    setCurrentFrameIndex(0);
   };
 
   return (
@@ -141,55 +243,27 @@ const WebcamCapture: React.FC = () => {
       {!showCapture ? (
         <>
           {/* Interface principale de caméra */}
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full flex justify-center items-center">
             <Webcam
-              audio={false}
+              audio={true} // Activer l'audio pour l'enregistrement vidéo
               ref={webcamRef}
               screenshotFormat="image/jpeg"
-              width={windowDimensions.width}
-              height={windowDimensions.height}
+              width={dimensions.width}
+              height={dimensions.height}
               videoConstraints={{
                 facingMode: "environment", // Caméra arrière sur mobile
-                width: windowDimensions.width,
-                height: windowDimensions.height,
+                width: dimensions.width,
+                height: dimensions.height,
+                aspectRatio: 4 / 3, // Forcer le ratio 4:3
               }}
-              className="h-full w-full object-cover"
+              className="object-contain" // Éviter le zoom
               onUserMediaError={(err) =>
-                setError("Erreur d&apos;accès à la caméra : " + err)
+                setError("Erreur d'accès à la caméra : " + err)
               }
             />
 
-            {/* Zone d'analyse visuelle (simulation basée sur l'image partagée) */}
-            {/* <div className="absolute inset-0 pointer-events-none"> */}
-            {/* Ligne horizontale et verticale de guidage */}
-            {/* <div className="absolute top-1/2 left-0 w-full h-0.5 bg-green-500 bg-opacity-50"></div>
-              <div className="absolute left-1/2 top-0 h-full w-0.5 bg-green-500 bg-opacity-50"></div> */}
-
-            {/* Zones de détection (simulation) - première zone */}
-            {/* <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
-                <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
-                  DÉTECTION 1
-                </div>
-              </div> */}
-
-            {/* Zones de détection - deuxième zone */}
-            {/* <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
-                <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
-                  DÉTECTION 2
-                </div>
-              </div> */}
-
-            {/* Zone verte à droite */}
-            {/* <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
-                <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
-                  ZONE OK
-                </div>
-              </div>
-            </div> */}
-
             {/* Contrôles de la caméra */}
             <div className="absolute bottom-10 left-0 right-0 flex justify-center items-center gap-8 z-10">
-              {/* Bouton d'enregistrement vidéo */}
               {!isRecording ? (
                 <button
                   onClick={startRecording}
@@ -206,7 +280,6 @@ const WebcamCapture: React.FC = () => {
                 </button>
               )}
 
-              {/* Bouton de capture photo principal */}
               <button
                 onClick={capture}
                 className="w-20 h-20 rounded-full border-4 border-white bg-white bg-opacity-20 flex items-center justify-center shadow-lg"
@@ -217,7 +290,7 @@ const WebcamCapture: React.FC = () => {
               </button>
             </div>
 
-            {/* Mini carte en bas à droite (comme dans l'image) */}
+            {/* Mini carte en bas à droite */}
             <div className="absolute bottom-5 right-5 w-16 h-16 bg-white rounded-md shadow-lg overflow-hidden">
               <div className="w-full h-full bg-blue-100 flex items-center justify-center">
                 <svg viewBox="0 0 24 24" className="w-10 h-10 text-blue-500">
@@ -232,54 +305,42 @@ const WebcamCapture: React.FC = () => {
         </>
       ) : (
         <>
-          {/* Affichage de la capture */}
-          <div className="relative w-full h-full bg-black">
-            {/* Image capturée */}
-            {imgSrc && (
-              <div className="w-full h-full">
+          {/* Affichage de la capture ou des résultats annotés */}
+          <div className="relative w-full h-full bg-black flex justify-center items-center">
+            {frames.length === 0 ? (
+              // Afficher la capture originale (avant envoi au backend)
+              <>
+                {imgSrc && (
+                  <img
+                    src={imgSrc}
+                    alt="Capture"
+                    className="object-contain max-w-full max-h-full"
+                  />
+                )}
+                {recordedChunks.length > 0 && (
+                  <video
+                    controls
+                    className="object-contain max-w-full max-h-full"
+                    src={URL.createObjectURL(
+                      new Blob(recordedChunks, { type: "video/webm" })
+                    )}
+                    autoPlay
+                  />
+                )}
+              </>
+            ) : (
+              // Afficher les résultats annotés
+              <div className="w-full h-full flex justify-center items-center">
                 <img
-                  src={imgSrc}
-                  alt="Capture"
-                  className="w-full h-full object-contain"
+                  src={frames[currentFrameIndex]}
+                  alt="Frame annotée"
+                  className="object-contain max-w-full max-h-full"
                 />
-
-                {/* Annotations de l'image (simulation) */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Première zone de détection */}
-                  {/* <div className="absolute top-[30%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
-                    <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
-                      DÉTECTION 1
-                    </div>
-                  </div> */}
-
-                  {/* Deuxième zone de détection */}
-                  {/* <div className="absolute top-[50%] left-[25%] w-[30%] h-[15%] border-2 border-orange-500 rounded-md">
-                    <div className="absolute -top-6 left-0 bg-orange-500 text-white text-xs px-2 py-1 rounded-t-md">
-                      DÉTECTION 2
-                    </div>
-                  </div> */}
-
-                  {/* Zone verte à droite */}
-                  {/* <div className="absolute top-[30%] right-[10%] w-[15%] h-[50%] border-2 border-green-500 rounded-md">
-                    <div className="absolute -top-6 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-t-md">
-                      ZONE OK
-                    </div>
-                  </div> */}
-                </div>
-              </div>
-            )}
-
-            {/* Vidéo enregistrée */}
-            {recordedChunks.length > 0 && (
-              <div className="w-full h-full">
-                <video
-                  controls
-                  className="w-full h-full object-contain"
-                  src={URL.createObjectURL(
-                    new Blob(recordedChunks, { type: "video/webm" })
-                  )}
-                  autoPlay
-                />
+                {frames.length > 1 && (
+                  <p className="absolute top-4 left-4 text-white">
+                    Frame #{currentFrameIndex + 1} / {frames.length}
+                  </p>
+                )}
               </div>
             )}
 
@@ -292,12 +353,14 @@ const WebcamCapture: React.FC = () => {
                 <FaTimes size={24} />
               </button>
 
-              <button
-                onClick={imgSrc ? uploadImageToBackend : uploadVideoToBackend}
-                className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg"
-              >
-                <FaUpload size={24} />
-              </button>
+              {(imgSrc || recordedChunks.length > 0) && frames.length === 0 && (
+                <button
+                  onClick={uploadToBackend}
+                  className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center text-white shadow-lg"
+                >
+                  <FaUpload size={24} />
+                </button>
+              )}
             </div>
           </div>
         </>
