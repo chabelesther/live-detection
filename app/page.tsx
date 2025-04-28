@@ -129,7 +129,7 @@ const WebcamCapture: React.FC = () => {
         formData.append("file", blob, "captured-image.jpg");
 
         const res = await fetch(
-          "https://chester24-yolo-detection-api.hf.space/predict",
+          "https://chester24-yolo-road-domage-detection-api.hf.space/predict",
           {
             method: "POST",
             body: formData,
