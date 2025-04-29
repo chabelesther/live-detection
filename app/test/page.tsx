@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 export default function FileUpload() {
   const [frames, setFrames] = useState<string[]>([]);
   const [currentFrameIndex, setCurrentFrameIndex] = useState(0);
@@ -65,13 +67,10 @@ export default function FileUpload() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(
-        "https://rdd-production.up.railway.app/predict/",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+      const response = await fetch(`${API_URL}/predict`, {
+        method: "POST",
+        body: formData,
+      });
 
       if (!response.ok) {
         const errorData = await response.json();

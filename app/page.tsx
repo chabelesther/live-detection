@@ -3,11 +3,23 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { FaCamera, FaVideo, FaStop, FaUpload, FaTimes } from "react-icons/fa";
 
+// Définir l'URL de l'API
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "https://rdd-production.up.railway.app";
+
 // Charger react-webcam uniquement côté client (pas de SSR)
-const Webcam = dynamic(() => import("react-webcam"), { ssr: false });
+const Webcam = dynamic(() => import("react-webcam"), {
+  ssr: false,
+  loading: () => <p>Chargement de la caméra...</p>,
+});
+
+interface WebcamRef {
+  getScreenshot: () => string | null;
+  stream: MediaStream | null;
+}
 
 const WebcamCapture: React.FC = () => {
-  const webcamRef = useRef<any>(null);
+  const webcamRef = useRef<WebcamRef>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
@@ -62,11 +74,14 @@ const WebcamCapture: React.FC = () => {
     };
   }, [frames]);
 
-  // Nettoyage du WebSocket
+  // Nettoyage du WebSocket et de l'animation
   useEffect(() => {
     return () => {
       if (ws) {
         ws.close();
+      }
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
   }, [ws]);
@@ -128,40 +143,7 @@ const WebcamCapture: React.FC = () => {
         const formData = new FormData();
         formData.append("file", blob, "captured-image.jpg");
 
-        const res = await fetch(
-          "https://rdd-production.up.railway.app/predict/",
-          {
-            method: "POST",
-            body: formData,
-          }
-        );
-
-        if (!res.ok) {
-          const errorData = await res.json();
-          throw new Error(errorData.detail || `Erreur HTTP: ${res.statusText}`);
-        }
-
-        const contentTypeResponse = res.headers.get("Content-Type") || "";
-        if (contentTypeResponse.startsWith("image/")) {
-          const blob = await res.blob();
-          const url = URL.createObjectURL(blob);
-          setFrames([url]); // Afficher l'image annotée
-          setError(null);
-        } else {
-          throw new Error(`Type de réponse inattendu: ${contentTypeResponse}`);
-        }
-      } catch (err: any) {
-        setError("Erreur lors de l'envoi de l'image: " + err.message);
-        console.error("Erreur:", err);
-      }
-    } else if (recordedChunks.length > 0) {
-      // Cas d'une vidéo
-      try {
-        const blob = new Blob(recordedChunks, { type: "video/webm" });
-        const formData = new FormData();
-        formData.append("file", blob, "recorded-video.webm");
-
-        const res = await fetch("http://127.0.0.1:8000/predict", {
+        const res = await fetch(`${API_URL}/predict`, {
           method: "POST",
           body: formData,
         });
@@ -172,6 +154,48 @@ const WebcamCapture: React.FC = () => {
         }
 
         const contentTypeResponse = res.headers.get("Content-Type") || "";
+        console.log("Type de réponse:", contentTypeResponse);
+
+        if (contentTypeResponse.startsWith("image/")) {
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          setFrames([url]); // Afficher l'image annotée
+          setError(null);
+        } else if (contentTypeResponse.startsWith("application/json")) {
+          const data = await res.json();
+          console.log("Réponse JSON:", data);
+          // Traiter la réponse JSON si nécessaire
+          setError(null);
+        } else {
+          throw new Error(`Type de réponse inattendu: ${contentTypeResponse}`);
+        }
+      } catch (err: unknown) {
+        setError(
+          "Erreur lors de l'envoi de l'image: " +
+            (err instanceof Error ? err.message : String(err))
+        );
+        console.error("Erreur:", err);
+      }
+    } else if (recordedChunks.length > 0) {
+      // Cas d'une vidéo
+      try {
+        const blob = new Blob(recordedChunks, { type: "video/webm" });
+        const formData = new FormData();
+        formData.append("file", blob, "recorded-video.webm");
+
+        const res = await fetch(`${API_URL}/predict`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.detail || `Erreur HTTP: ${res.statusText}`);
+        }
+
+        const contentTypeResponse = res.headers.get("Content-Type") || "";
+        console.log("Type de réponse vidéo:", contentTypeResponse);
+
         if (contentTypeResponse.startsWith("application/json")) {
           const data = await res.json();
           console.log("Réponse JSON:", data);
@@ -185,7 +209,7 @@ const WebcamCapture: React.FC = () => {
             const videoData = event.target.result as ArrayBuffer;
 
             const websocket = new WebSocket(
-              "ws://127.0.0.1:8000/ws/process-video"
+              `ws://127.0.0.1:8000/ws/process-video`
             );
             setWs(websocket);
 
@@ -226,8 +250,11 @@ const WebcamCapture: React.FC = () => {
         } else {
           throw new Error(`Type de réponse inattendu: ${contentTypeResponse}`);
         }
-      } catch (err: any) {
-        setError("Erreur lors de l'envoi de la vidéo: " + err.message);
+      } catch (err: unknown) {
+        setError(
+          "Erreur lors de l'envoi de la vidéo: " +
+            (err instanceof Error ? err.message : String(err))
+        );
         console.error("Erreur:", err);
       }
     }
@@ -249,6 +276,7 @@ const WebcamCapture: React.FC = () => {
           <div className="relative w-full h-full flex justify-center items-center">
             <Webcam
               audio={true} // Activer l'audio pour l'enregistrement vidéo
+              // @ts-expect-error - Ignorer les problèmes de typage avec react-webcam
               ref={webcamRef}
               screenshotFormat="image/jpeg"
               width={dimensions.width}
