@@ -3,13 +3,8 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { FaVideo, FaStop } from "react-icons/fa";
 
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
-// const WS_URL = "ws://127.0.0.1:8000/ws/stream-video";
-// Définir l'URL de l'API
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://rdd-production.up.railway.app";
-// WebSocket URL - Remplacer http:// par ws:// et https:// par wss://
-const WS_URL = API_URL.replace(/^http/, "ws") + "/ws/stream-video";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const WS_URL = "ws://127.0.0.1:8000/ws/stream-video";
 
 const Webcam = dynamic(() => import("react-webcam"), {
   ssr: false,
