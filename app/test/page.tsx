@@ -89,6 +89,43 @@ export default function FileUpload() {
         const url = URL.createObjectURL(blob);
         setFrames([url]);
         setLoading(false);
+      } else if (contentTypeResponse.startsWith("video/")) {
+        // Cas d'une vidéo (nouvelle gestion)
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        // Informer l'utilisateur que la vidéo est prête
+        console.log("Vidéo traitée avec succès");
+
+        // Vérifier si on a un conteneur dédié pour les résultats
+        const container = document.getElementById("results-container");
+
+        if (container) {
+          // Si on a un conteneur dédié, on y met la vidéo
+          // Créer un élément vidéo pour afficher la vidéo
+          const videoElement = document.createElement("video");
+          videoElement.src = url;
+          videoElement.controls = true;
+          videoElement.autoplay = false;
+          videoElement.className = "w-full h-auto";
+          videoElement.style.maxWidth = "100%";
+
+          // Vider le conteneur et ajouter la vidéo
+          container.innerHTML = "";
+          container.appendChild(videoElement);
+        } else {
+          // Si le conteneur n'existe pas, on utilise une approche alternative
+          // Ouvrir la vidéo dans un nouvel onglet
+          window.open(url, "_blank");
+
+          console.warn(
+            "Le conteneur 'results-container' n'existe pas. La vidéo a été ouverte dans un nouvel onglet."
+          );
+        }
+
+        // Stocker l'URL dans le tableau des frames pour compatibilité
+        setFrames([url]);
+        setLoading(false);
       } else if (contentTypeResponse.startsWith("application/json")) {
         // Cas d'une vidéo (réponse JSON indiquant d'utiliser WebSocket)
         const data = await response.json();
