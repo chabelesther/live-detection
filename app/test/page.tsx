@@ -66,7 +66,7 @@ export default function FileUpload() {
       formData.append("file", file);
 
       const response = await fetch(
-        "https://chester24-yolo-road-domage-detection-api.hf.space/predict",
+        "https://rdd-production.up.railway.app/predict/",
         {
           method: "POST",
           body: formData,
