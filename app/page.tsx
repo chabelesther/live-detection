@@ -3,15 +3,23 @@ import React, { useRef, useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { FaVideo, FaStop } from "react-icons/fa";
 
-// Définir l'URL de l'API
-const API_URL =
-  "https://yolo-road-domage-detection-api-production.up.railway.app/";
-
 // WebSocket URL - Version de débogage avec URL directe
-const WS_URL =
-  "wss://yolo-road-domage-detection-api-production.up.railway.app/ws/stream-video";
-console.log("URL WebSocket:", WS_URL);
+const WS_URL = "ws://127.0.0.1:8000/ws/stream-video";
+const API_URL = "http://127.0.0.1:8000";
 
+// WebSocket URL - Version de production avec URL Render
+
+// const WS_URL =
+//   "wss://yolo-road-domage-detection-api.onrender.com/ws/stream-video";
+// const API_URL = "https://yolo-road-domage-detection-api.onrender.com";
+
+// WebSocket URL - Version de production avec URL Railway
+// const WS_URL =
+//   "wss://yolo-road-domage-detection-api-production.up.railway.app/ws/stream-video";
+// const API_URL =
+//   "https://yolo-road-domage-detection-api-production.up.railway.app";
+
+console.log("URL WebSocket:", WS_URL);
 const Webcam = dynamic(() => import("react-webcam"), {
   ssr: false,
   loading: () => <p>Chargement de la caméra...</p>,
@@ -30,6 +38,7 @@ const WebcamCapture: React.FC = () => {
   const [frameCount, setFrameCount] = useState(0);
   const [fps, setFps] = useState<number>(0);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [isShuttingDown, setIsShuttingDown] = useState(false);
   const frameIntervalRef = useRef<any>(null);
   const reconnectTimeoutRef = useRef<any>(null);
   const framesReceivedRef = useRef(0);
@@ -84,6 +93,28 @@ const WebcamCapture: React.FC = () => {
     } catch (e) {
       console.error("Erreur conversion base64 en Blob:", e);
       return null;
+    }
+  };
+
+  // Fonction pour arrêter complètement le serveur
+  const shutdownServer = async () => {
+    if (window.confirm("Voulez-vous vraiment arrêter le serveur?")) {
+      setIsShuttingDown(true);
+
+      // Arrêter le streaming d'abord
+      stopStreaming();
+
+      try {
+        const response = await fetch(`${API_URL}/shutdown`);
+        const data = await response.json();
+        console.log("Réponse du serveur:", data);
+        setError("Serveur en cours d'arrêt. Veuillez fermer cette fenêtre.");
+      } catch (e) {
+        console.log("Serveur probablement déjà arrêté:", e);
+        setError("Le serveur est arrêté ou ne répond plus.");
+      } finally {
+        setIsShuttingDown(false);
+      }
     }
   };
 
@@ -164,8 +195,8 @@ const WebcamCapture: React.FC = () => {
                 websocket.send(blob);
                 framesSentRef.current++;
 
-                // Log détaillé toutes les 5 frames
-                if (framesSentRef.current % 5 === 0) {
+                // Log détaillé toutes les 10 frames
+                if (framesSentRef.current % 10 === 0) {
                   console.log(
                     `Frame #${
                       framesSentRef.current
@@ -191,6 +222,13 @@ const WebcamCapture: React.FC = () => {
             // Mettre à jour le FPS si disponible
             if (data.fps) {
               setFps(data.fps);
+            }
+
+            // Mettre à jour les dimensions si disponibles
+            if (data.dimensions) {
+              // Ici on ne met pas à jour setDimensions car on veut garder la taille d'affichage
+              // mais on peut utiliser ces valeurs pour d'autres calculs si nécessaire
+              console.log("Dimensions originales:", data.dimensions);
             }
           }
         } catch (e) {
@@ -251,7 +289,13 @@ const WebcamCapture: React.FC = () => {
         // Envoyer un message de déconnexion propre
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ action: "disconnect" }));
-          ws.close(1000, "Déconnexion volontaire");
+          setTimeout(() => {
+            try {
+              ws.close(1000, "Déconnexion volontaire");
+            } catch (e) {
+              console.error("Erreur lors de la fermeture différée:", e);
+            }
+          }, 300);
         } else {
           ws.close();
         }
@@ -320,6 +364,17 @@ const WebcamCapture: React.FC = () => {
               <FaStop size={24} />
             </button>
           )}
+
+          {/* Bouton d'arrêt du serveur */}
+          {/* <button
+            onClick={shutdownServer}
+            disabled={isShuttingDown}
+            className={`w-14 h-14 rounded-full ${
+              isShuttingDown ? "bg-gray-600" : "bg-blue-600"
+            } flex items-center justify-center text-white shadow-lg`}
+          >
+            <FaPowerOff size={24} />
+          </button> */}
         </div>
       </div>
 

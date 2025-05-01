@@ -10,7 +10,7 @@ const API_URL =
 // Charger react-webcam uniquement côté client (pas de SSR)
 const Webcam = dynamic(() => import("react-webcam"), {
   ssr: false,
-  loading: () => <p>Chargement de la caméra...</p>,
+  loading: () => <p className=" texte-white">Chargement de la caméra...</p>,
 });
 
 interface WebcamRef {
