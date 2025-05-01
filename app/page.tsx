@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import { FaVideo, FaStop } from "react-icons/fa";
 
 // WebSocket URL - Version de débogage avec URL directe
-const WS_URL = "ws://127.0.0.1:8000/ws/stream-video";
-const API_URL = "http://127.0.0.1:8000";
+// const WS_URL = "ws://127.0.0.1:8000/ws/stream-video";
+// const API_URL = "http://127.0.0.1:8000";
 
 // WebSocket URL - Version de production avec URL Render
 
@@ -14,10 +14,10 @@ const API_URL = "http://127.0.0.1:8000";
 // const API_URL = "https://yolo-road-domage-detection-api.onrender.com";
 
 // WebSocket URL - Version de production avec URL Railway
-// const WS_URL =
-//   "wss://yolo-road-domage-detection-api-production.up.railway.app/ws/stream-video";
-// const API_URL =
-//   "https://yolo-road-domage-detection-api-production.up.railway.app";
+const WS_URL =
+  "wss://yolo-road-domage-detection-api-production.up.railway.app/ws/stream-video";
+const API_URL =
+  "https://yolo-road-domage-detection-api-production.up.railway.app";
 
 console.log("URL WebSocket:", WS_URL);
 const Webcam = dynamic(() => import("react-webcam"), {
